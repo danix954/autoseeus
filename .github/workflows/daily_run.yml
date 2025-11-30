@@ -1,0 +1,29 @@
+name: Daily Seeuus Bot Execution
+
+on:
+  schedule:
+    # Planifié pour 8h00 UTC, ce qui est 9h00 CET (Heure d'hiver française)
+    - cron: '0 8 * * *' 
+  workflow_dispatch: 
+
+jobs:
+  run-selenium-script:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+
+      - name: Install Dependencies and Chrome
+        run: |
+          sudo apt-get update
+          sudo apt-get install chromium-browser -y
+          pip install selenium webdriver-manager yagmail
+
+      - name: Run Python Script
+        run: python auto_seeuus.py
