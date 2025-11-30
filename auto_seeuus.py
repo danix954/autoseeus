@@ -6,7 +6,8 @@ from selenium.webdriver.support import expected_conditions as EC
 from webdriver_manager.chrome import ChromeDriverManager
 import time
 import yagmail
-from selenium.webdriver.chrome.options import Options 
+from selenium.webdriver.chrome.options import Options
+from selenium.common.exceptions import TimeoutException # Import pour gérer les éléments manquants
 
 # -----------------------------------
 # CONFIGURATION
@@ -26,14 +27,12 @@ def run_for_account(email, password):
 
     # --- Configuration du WebDriver en mode HEADLESS (obligatoire sur GitHub Actions) ---
     chrome_options = Options()
-    # Arguments CRUCIAUX pour Linux CI/CD:
     chrome_options.add_argument("--headless")
     chrome_options.add_argument("--no-sandbox")
     chrome_options.add_argument("--disable-dev-shm-usage") 
     chrome_options.add_argument("--disable-gpu")
     chrome_options.add_argument("--window-size=1920,1080")
     
-    # Création du WebDriver avec les options Headless
     driver = webdriver.Chrome(
         service=Service(ChromeDriverManager().install()), 
         options=chrome_options
@@ -67,19 +66,22 @@ def run_for_account(email, password):
         time.sleep(2)
         
     except Exception as e:
-        print(f"-> [ERREUR] Échec de la connexion/Sign-in pour {email} : {e}")
+        print(f"-> [ERREUR CRITIQUE] Échec de la connexion/Sign-in pour {email} : {e}")
         driver.quit()
         return False
 
     # ---------------------------
     # RÉCOMPENSE QUOTIDIENNE (WELFARE)
     # ---------------------------
+    # Utilisation d'un délai d'attente court (10s) pour ne pas bloquer si l'action est déjà faite
+    reward_wait = WebDriverWait(driver, 10) 
+    
     try:
         driver.get("https://seeuus.com/welfare")
         time.sleep(3)
 
         # Cherche la case de récompense active en se basant sur le texte 'Sign in'
-        sign_in_reward_button = wait.until(EC.element_to_be_clickable(
+        sign_in_reward_button = reward_wait.until(EC.element_to_be_clickable(
             (By.XPATH, "//*[contains(text(), 'Sign in')]") 
         ))
         
@@ -95,50 +97,59 @@ def run_for_account(email, password):
         print(f"-> [OK] Récompense prise pour {email}.")
         time.sleep(2)
         
+    except TimeoutException:
+        # Si le bouton n'apparaît pas, c'est que la récompense a déjà été prise aujourd'hui.
+        print(f"-> [INFO] Récompense 'Sign in' déjà réclamée ou indisponible pour {email}.")
     except Exception as e:
-        # L'exception est levée si la récompense est déjà réclamée ou si un élément n'est pas trouvé.
-        print(f"-> [INFO] Aucune récompense 'Sign in' disponible ou erreur ({e}).")
+        # Autres erreurs non gérées par Timeout
+        print(f"-> [INFO] Problème lors de la prise de récompense pour {email} : {e}")
+
 
     # ---------------------------
     # CRÉER L'ORDER (GRID)
     # ---------------------------
+    # Utilisation d'un délai d'attente court (10s) pour ne pas bloquer si l'action est déjà faite
+    order_wait = WebDriverWait(driver, 10) 
+    
     try:
         driver.get("https://seeuus.com/grid")
         time.sleep(3) 
 
         # Create Order
-        create_order_btn = wait.until(EC.element_to_be_clickable(
+        create_order_btn = order_wait.until(EC.element_to_be_clickable(
             (By.XPATH, "//button[contains(text(), 'Create order') and contains(@class, 'buts1')]")
         ))
         create_order_btn.click()
         time.sleep(1)
 
         # ALL
-        all_btn = wait.until(EC.element_to_be_clickable(
+        all_btn = order_wait.until(EC.element_to_be_clickable(
             (By.XPATH, "//div[contains(text(), 'All') and contains(@class, 'all')]")
         ))
         all_btn.click()
         time.sleep(1)
 
         # Start AI
-        start_ai_btn = wait.until(EC.element_to_be_clickable(
+        start_ai_btn = order_wait.until(EC.element_to_be_clickable(
             (By.XPATH, "//div[contains(text(), 'Start AI') and contains(@class, 'submit')]")
         ))
         start_ai_btn.click()
         print(f"-> [OK] Ordre créé et 'Start AI' lancé pour {email}.")
         time.sleep(3)
 
+    except TimeoutException:
+        # Si le bouton 'Create order' n'est pas trouvé ou si 'Start AI' est manquant, 
+        # c'est que l'ordre est déjà créé/actif.
+        print(f"-> [INFO] Ordre de grille déjà créé ou bouton 'Start AI' indisponible pour {email}.")
     except Exception as e:
-        print(f"-> [ERREUR] Erreur lors de la création de l'ordre pour {email} : {e}")
-        driver.quit()
-        return False
+        print(f"-> [INFO] Erreur lors de la création de l'ordre pour {email} : {e}")
 
     driver.quit()
     return True
 
 
 # -----------------------------------
-# ENVOI EMAIL
+# ENVOI EMAIL & MAIN (Non modifié)
 # -----------------------------------
 def send_confirmation():
     try:
@@ -146,20 +157,18 @@ def send_confirmation():
         yag.send(
             to=YOUR_EMAIL,
             subject="SEEUS – Script terminé",
-            contents="Les tâches ont été effectuées avec succès sur les comptes configurés."
+            contents="Les tâches ont été effectuées avec succès sur les comptes configurés. Vérifiez les logs pour le statut exact de la récompense et de l'ordre."
         )
         print("\n✅ Email de confirmation envoyé.")
     except Exception as e:
         print(f"\n❌ Erreur lors de l'envoi de l'email : Vérifiez le mot de passe d'application. Erreur: {e}")
 
-# -----------------------------------
-# MAIN
-# -----------------------------------
 if __name__ == "__main__":
     success_count = 0
     total_accounts = len(ACCOUNTS)
     
     for acc in ACCOUNTS:
+        # Le script retourne toujours True à la fin, sauf en cas d'échec critique de connexion.
         if run_for_account(acc["email"], acc["password"]):
             success_count += 1
 
