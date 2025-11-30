@@ -6,18 +6,16 @@ from selenium.webdriver.support import expected_conditions as EC
 from webdriver_manager.chrome import ChromeDriverManager
 import time
 import yagmail
-from selenium.webdriver.chrome.options import Options # Importé pour le mode Headless si nécessaire
+from selenium.webdriver.chrome.options import Options 
 
 # -----------------------------------
 # CONFIGURATION
 # -----------------------------------
 ACCOUNTS = [
-    {"email": "desousadani2005@gmail.com", "password": "DaniDeSousa95"},
+    {"email": "danidesousa2005@gmail.com", "password": "DaniDeSousa95"},
     {"email": "alexandroten5@gmail.com", "password": "DaniDeSousa95"},
 ]
 
-# NOTE: Assurez-vous que YOUR_EMAIL_APP_PASSWORD est un mot de passe d'application généré 
-# et non votre mot de passe habituel, surtout pour Gmail.
 YOUR_EMAIL = "danidesousa2005@gmail.com"
 YOUR_EMAIL_APP_PASSWORD = "dwlsfjwerrtlfzpl"
 
@@ -26,15 +24,20 @@ YOUR_EMAIL_APP_PASSWORD = "dwlsfjwerrtlfzpl"
 # -----------------------------------
 def run_for_account(email, password):
 
-    # --- Configuration du WebDriver ---
-    # Pour Windows local :
-    driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()))
+    # --- Configuration du WebDriver en mode HEADLESS (obligatoire sur GitHub Actions) ---
+    chrome_options = Options()
+    # Arguments CRUCIAUX pour Linux CI/CD:
+    chrome_options.add_argument("--headless")
+    chrome_options.add_argument("--no-sandbox")
+    chrome_options.add_argument("--disable-dev-shm-usage") 
+    chrome_options.add_argument("--disable-gpu")
+    chrome_options.add_argument("--window-size=1920,1080")
     
-    # Pour un VPS/Cloud (décommentez si vous passez en 24/7) :
-    # chrome_options = Options()
-    # chrome_options.add_argument("--headless")
-    # chrome_options.add_argument("--no-sandbox")
-    # driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=chrome_options)
+    # Création du WebDriver avec les options Headless
+    driver = webdriver.Chrome(
+        service=Service(ChromeDriverManager().install()), 
+        options=chrome_options
+    )
     
     driver.get("https://seeuus.com/login")
     wait = WebDriverWait(driver, 20)
@@ -43,24 +46,19 @@ def run_for_account(email, password):
         print(f"\n--- Début du traitement pour {email} ---")
 
         # --- 1. CONNEXION ---
-        
-        # Sélection Mailbox
         mailbox_tab = wait.until(EC.element_to_be_clickable((By.XPATH, "//li[contains(text(), 'Mailbox')]")))
         mailbox_tab.click()
         time.sleep(1)
 
-        # Champs Email & MDP
         email_input = wait.until(EC.presence_of_element_located((By.XPATH, "//input[@type='text' and @placeholder='Please enter your email address']")))
         email_input.send_keys(email)
         password_input = wait.until(EC.presence_of_element_located((By.XPATH, "//input[@type='password' and @placeholder='Please enter your password']")))
         password_input.send_keys(password)
 
-        # Bouton LOGIN
         login_button = wait.until(EC.element_to_be_clickable((By.XPATH, "//button[contains(text(), 'Login')]")))
         login_button.click()
         time.sleep(3) 
         
-        # Clic obligatoire sur "Sign in now" (Validation post-connexion)
         sign_in_now_button = wait.until(EC.element_to_be_clickable(
             (By.XPATH, "//div[contains(text(), 'Sign in now') and contains(@class, 'submit')]")
         ))
@@ -80,7 +78,7 @@ def run_for_account(email, password):
         driver.get("https://seeuus.com/welfare")
         time.sleep(3)
 
-        # Cherche la case de récompense active en se basant sur le texte 'Sign in' (peu importe la position)
+        # Cherche la case de récompense active en se basant sur le texte 'Sign in'
         sign_in_reward_button = wait.until(EC.element_to_be_clickable(
             (By.XPATH, "//*[contains(text(), 'Sign in')]") 
         ))
