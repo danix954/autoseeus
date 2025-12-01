@@ -3,7 +3,7 @@ name: Daily Seeuus Bot Execution
 on:
   schedule:
     # Planifié pour 8h00 UTC, ce qui est 9h00 CET (Heure d'hiver française)
-    - cron: '0 8 * * *' 
+    - cron: '0 7 * * *' 
   workflow_dispatch: 
 
 jobs:
